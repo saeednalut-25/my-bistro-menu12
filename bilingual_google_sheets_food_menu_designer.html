@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bilingual Google Sheets Food Menu Designer</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Inter for Latin & Cairo for Arabic) -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Cairo', 'Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        sheets: {
+                            green: '#0f9d58',
+                            hover: '#0b8043',
+                            light: '#e6f4ea',
+                            accent: '#1a73e8',
+                            border: '#dadce0',
+                            bg: '#f8f9fa'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbars matching Google Sheets */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+        /* Spreadsheet conditional formatting highlight states */
+        .cell-active {
+            outline: 2px solid #0f9d58 !important;
+            outline-offset: -2px;
+            background-color: #e6f4ea !important;
+            z-index: 10;
+        }
+        .row-header-active {
+            background-color: #d2ebd9 !important;
+            color: #0f9d58 !important;
+            font-weight: bold;
+        }
+        .col-header-active {
+            background-color: #d2ebd9 !important;
+            color: #0f9d58 !important;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="bg-[#f9fafb] text-gray-800 font-sans min-h-screen flex flex-col antialiased">
+
+    <!-- TOP GOOGLE SHEETS HEADER BAR WITH LANGUAGE TOGGLE -->
+    <header class="bg-white border-b border-sheets-border sticky top-0 z-50 px-4 py-2 shadow-sm">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <!-- Sheets Logo & Info -->
+            <div class="flex items-center gap-3">
+                <div class="bg-sheets-green text-white p-2 rounded-lg flex items-center justify-center shadow-md">
+                    <i class="fa-solid fa-file-spreadsheet text-xl"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <input id="sheet-title-input" type="text" value="Bistro Delight Live Menu Database" 
+                               class="text-base md:text-lg font-bold text-gray-800 focus:outline-none focus:border-b-2 focus:border-sheets-green border-b border-transparent pb-0.5 bg-transparent max-w-xs md:max-w-md" 
+                               title="Rename Spreadsheet">
+                        <span class="bg-blue-100 text-blue-800 text-[10px] md:text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                            <span id="txt-syncing">Auto-Syncing</span>
+                        </span>
+                    </div>
+                    <!-- Menu options simulator -->
+                    <div class="flex flex-wrap items-center gap-2 md:gap-4 text-xs text-gray-500 mt-1">
+                        <button onclick="triggerReset()" class="hover:text-gray-800 transition"><i class="fa-solid fa-rotate-left mr-1"></i><span id="txt-reset">Reset System Data</span></button>
+                        <span class="text-gray-300">|</span>
+                        <button onclick="exportToJSON()" class="hover:text-gray-800 transition"><i class="fa-solid fa-file-export mr-1"></i><span id="txt-export">Export JSON</span></button>
+                        <span class="text-gray-300">|</span>
+                        <button onclick="toggleInfoModal()" class="hover:text-gray-800 transition"><i class="fa-solid fa-circle-question mr-1"></i><span id="txt-guide">User Guide</span></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Language and Publishing Actions Bar -->
+            <div class="flex items-center gap-2 self-start md:self-auto flex-wrap">
+                <!-- Publishing Help Button -->
+                <button onclick="togglePublishModal()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span id="txt-publish-btn">Publish App Online</span>
+                </button>
+
+                <!-- Language Selector -->
+                <div class="bg-gray-100 p-1 rounded-lg border border-gray-200 flex items-center">
+                    <button onclick="toggleLanguage('en')" id="lang-btn-en" class="px-2.5 py-1 text-xs font-bold rounded-md transition-all bg-white text-gray-800 shadow-sm">EN</button>
+                    <button onclick="toggleLanguage('ar')" id="lang-btn-ar" class="px-2.5 py-1 text-xs font-bold rounded-md transition-all text-gray-500 hover:text-gray-800">عربي</button>
+                </div>
+
+                <!-- Tab Switcher (Sheets layout style) -->
+                <div class="bg-gray-100 p-1 rounded-xl border border-gray-200 flex gap-1">
+                    <button id="tab-btn-sheets" onclick="switchTab('sheets')" class="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all shadow-sm bg-white text-sheets-green border border-gray-100">
+                        <i class="fa-solid fa-table"></i>
+                        <span id="txt-admin-tab">Spreadsheet Editor</span>
+                    </button>
+                    <button id="tab-btn-preview" onclick="switchTab('preview')" class="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-600 hover:text-gray-900 hover:bg-white/50 transition-all">
+                        <i class="fa-solid fa-utensils"></i>
+                        <span id="txt-preview-tab">Live Customer Menu</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN BODY CONTENT CONTAINER -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-6">
+
+        <!-- SPREADSHEET TAB (ADMIN PANEL) -->
+        <div id="tab-content-sheets" class="block">
+            
+            <!-- Quick Alert Notification Panel -->
+            <div id="custom-alert" class="hidden mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl flex items-center justify-between shadow-sm">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-circle-check text-emerald-600 text-lg"></i>
+                    <span id="custom-alert-msg" class="text-sm font-medium">System loaded successfully.</span>
+                </div>
+                <button onclick="dismissAlert()" class="text-emerald-500 hover:text-emerald-800"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- GOOGLE SHEETS TOOLBAR -->
+            <div class="bg-white border border-sheets-border rounded-t-xl p-3 flex flex-wrap items-center justify-between gap-4 shadow-sm border-b-0">
+                
+                <!-- Action Tools -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <!-- Add Row -->
+                    <button onclick="addEmptyRow()" class="bg-sheets-green hover:bg-sheets-hover text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+                        <i class="fa-solid fa-plus"></i> <span id="txt-add-dish">Add Dish Row</span>
+                    </button>
+                    <!-- Delete Row -->
+                    <button id="delete-row-btn" onclick="deleteActiveRow()" class="bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed border border-rose-200" disabled>
+                        <i class="fa-solid fa-trash"></i> <span id="txt-delete-dish">Delete Selected Row</span>
+                    </button>
+                    <!-- Quick category preset filter -->
+                    <div class="h-6 w-[1px] bg-gray-200 mx-1"></div>
+                    <div class="flex items-center gap-1 text-xs">
+                        <span class="text-gray-500 font-bold" id="txt-sort-label"><i class="fa-solid fa-filter mr-1"></i>Sort by:</span>
+                        <select id="sort-dropdown" onchange="sortSpreadsheet(this.value)" class="bg-gray-50 border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:border-sheets-green">
+                            <option value="" id="opt-no-sort">(No Sorting)</option>
+                            <option value="price-asc" id="opt-price-asc">Price (Low to High)</option>
+                            <option value="price-desc" id="opt-price-desc">Price (High to Low)</option>
+                            <option value="name-asc" id="opt-name-asc">Item Name (A-Z)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Live Quick Statistics / Mini KPI Dashboard -->
+                <div class="flex flex-wrap items-center gap-4 text-xs font-semibold text-gray-600 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-gray-400" id="lbl-total-dishes">Total Dishes:</span>
+                        <span id="stat-total-items" class="text-slate-900 bg-white border px-1.5 py-0.5 rounded shadow-sm">0</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-gray-400" id="lbl-avg-price">Avg Price:</span>
+                        <span id="stat-avg-price" class="text-slate-900 bg-white border px-1.5 py-0.5 rounded shadow-sm">$0.00</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-gray-400" id="lbl-soldout">Unavailable:</span>
+                        <span id="stat-out-stock" class="text-rose-600 bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded shadow-sm">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FORMULA BAR -->
+            <div class="bg-white border-x border-sheets-border border-b p-2 flex items-center gap-2 shadow-sm text-sm">
+                <!-- Cell Identifier Panel -->
+                <div id="active-cell-indicator" class="bg-gray-50 border border-gray-300 rounded px-3 py-1 font-mono font-semibold text-slate-700 min-w-[50px] text-center select-none" title="Selected Cell Coordinate">
+                    A1
+                </div>
+                <!-- Formula icon fx -->
+                <div class="text-gray-400 select-none px-1">
+                    <span class="font-mono italic font-bold text-gray-500 text-lg">fx</span>
+                </div>
+                <!-- Formula input field -->
+                <div class="relative flex-grow">
+                    <input id="formula-bar-input" type="text" placeholder="..." 
+                           class="w-full bg-gray-50 border border-gray-300 focus:bg-white focus:border-sheets-green focus:ring-1 focus:ring-sheets-green rounded-lg py-1 px-3 font-mono text-gray-800 focus:outline-none transition"
+                           oninput="onFormulaBarInput(this.value)">
+                </div>
+            </div>
+
+            <!-- SHEET GRID AREA CONTAINER -->
+            <div class="bg-white border border-sheets-border rounded-b-xl shadow-lg overflow-x-auto">
+                <table class="w-full border-collapse table-fixed min-w-[900px]">
+                    <!-- Table Columns Setup -->
+                    <colgroup>
+                        <col class="w-12"> <!-- Row numbering -->
+                        <col class="w-24"> <!-- Column A - Code ID -->
+                        <col class="w-48"> <!-- Column B - Name -->
+                        <col class="w-36"> <!-- Column C - Category -->
+                        <col class="w-28"> <!-- Column D - Price -->
+                        <col class="w-64"> <!-- Column E - Description -->
+                        <col class="w-64"> <!-- Column F - Image URL -->
+                        <col class="w-32"> <!-- Column G - Live Status -->
+                    </colgroup>
+                    
+                    <!-- Spreadsheet Headers (Row 0) -->
+                    <thead>
+                        <tr class="bg-gray-100 text-xs font-semibold text-gray-600 text-center border-b border-gray-200">
+                            <!-- Empty top-left cell -->
+                            <th class="border-r border-gray-200 bg-gray-150 py-2 select-none text-center">
+                                <i class="fa-solid fa-play text-[8px] text-gray-400 rotate-45"></i>
+                            </th>
+                            <!-- Col Letters -->
+                            <th id="col-header-A" class="border-r border-gray-200 py-2 select-none">A (ID)</th>
+                            <th id="col-header-B" class="border-r border-gray-200 py-2 select-none">B (Name)</th>
+                            <th id="col-header-C" class="border-r border-gray-200 py-2 select-none">C (Category)</th>
+                            <th id="col-header-D" class="border-r border-gray-200 py-2 select-none">D (Price)</th>
+                            <th id="col-header-E" class="border-r border-gray-200 py-2 select-none">E (Description)</th>
+                            <th id="col-header-F" class="border-r border-gray-200 py-2 select-none">F (Image URL)</th>
+                            <th id="col-header-G" class="border-b border-gray-200 py-2 select-none">G (Status)</th>
+                        </tr>
+                    </thead>
+                    
+                    <!-- Dynamic Body Rows -->
+                    <tbody id="sheets-table-body" class="divide-y divide-gray-100 text-sm font-mono text-gray-700">
+                        <!-- Instantiated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Quick interactive note -->
+            <p class="text-xs text-gray-500 mt-3 flex items-center gap-2 px-1">
+                <i class="fa-solid fa-lightbulb text-amber-500"></i>
+                <span id="txt-pro-tip"><strong>Pro-Tip:</strong> Click on any cell directly to edit its content inside the grid, or use the formulas bar at the top! The Customer view is updated simultaneously in real-time.</span>
+            </p>
+        </div>
+
+        <!-- LIVE DIGITAL MENU TAB -->
+        <div id="tab-content-preview" class="hidden">
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                <!-- Left Column: Menu Listings & Customization Filters -->
+                <div class="lg:col-span-2 space-y-6">
+                    
+                    <!-- Search & Categories Live Toolbar -->
+                    <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <!-- Custom Search bar -->
+                        <div class="relative flex-grow max-w-md">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 pointer-events-none">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </span>
+                            <input id="menu-search-input" type="text" oninput="renderLiveMenu()" placeholder="Search dishes..." 
+                                   class="w-full bg-gray-50 border border-gray-200 focus:bg-white focus:border-sheets-green rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-sheets-green transition">
+                        </div>
+
+                        <!-- Quick Live Category Pill Filters -->
+                        <div id="menu-category-pills" class="flex flex-wrap gap-1.5">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Live Menu Grid Items (Card displays) -->
+                    <div id="live-menu-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Populated by JavaScript -->
+                    </div>
+
+                    <!-- Empty state if search fails -->
+                    <div id="live-menu-empty" class="hidden text-center py-12 bg-white rounded-2xl border border-dashed border-gray-300">
+                        <i class="fa-solid fa-face-frown text-4xl text-gray-300 mb-3"></i>
+                        <h4 class="text-lg font-semibold text-gray-700" id="txt-no-dishes">No dishes match your query</h4>
+                        <p class="text-sm text-gray-500 mt-1" id="txt-no-dishes-sub">Try refining your filter tag or searching for other items inside the Admin table.</p>
+                    </div>
+                </div>
+
+                <!-- Right Column: Interactive Bill Simulator & Customer Cart -->
+                <div class="lg:col-span-1">
+                    <div class="bg-white rounded-2xl border border-gray-100 shadow-md p-6 sticky top-24 space-y-6">
+                        <div class="flex items-center justify-between border-b pb-4">
+                            <div class="flex items-center gap-2">
+                                <span class="bg-sheets-light text-sheets-green p-2 rounded-lg"><i class="fa-solid fa-basket-shopping text-lg"></i></span>
+                                <h3 class="text-lg font-bold text-gray-900" id="lbl-cart-title">Your Checkout Cart</h3>
+                            </div>
+                            <button onclick="clearCart()" class="text-xs text-rose-500 hover:text-rose-700 font-semibold transition flex items-center gap-1">
+                                <i class="fa-solid fa-trash-can"></i> <span id="txt-clear-all">Clear All</span>
+                            </button>
+                        </div>
+
+                        <!-- Cart Line Items -->
+                        <div id="cart-items-container" class="space-y-4 max-h-[350px] overflow-y-auto pr-2">
+                            <!-- Populated dynamically -->
+                        </div>
+
+                        <!-- Cart Calculation Breakdown -->
+                        <div class="border-t pt-4 space-y-2 text-sm">
+                            <div class="flex justify-between text-gray-600">
+                                <span id="lbl-cart-subtotal">Cart Subtotal</span>
+                                <span id="cart-subtotal">$0.00</span>
+                            </div>
+                            <div class="flex justify-between text-gray-600">
+                                <span id="lbl-cart-tax">HST Sales Tax (13%)</span>
+                                <span id="cart-tax">$0.00</span>
+                            </div>
+                            <div class="flex justify-between text-gray-600">
+                                <span id="lbl-cart-delivery">Delivery</span>
+                                <span id="cart-fee" class="text-emerald-600 font-semibold">FREE</span>
+                            </div>
+                            <div class="flex justify-between text-lg font-bold text-gray-900 border-t pt-3 mt-2">
+                                <span id="lbl-cart-total">Total Payable</span>
+                                <span id="cart-total" class="text-sheets-green">$0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- Place Mock Order Button -->
+                        <button onclick="triggerOrderSuccess()" id="cart-checkout-btn" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fa-solid fa-receipt"></i> <span id="txt-place-order">Place Simulated Order</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <!-- INFO & USER GUIDE MODAL -->
+    <div id="info-modal" class="hidden fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-gray-100 space-y-4 relative">
+            <button onclick="toggleInfoModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-xl transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="flex items-center gap-3 border-b pb-3">
+                <span class="bg-sheets-light text-sheets-green p-2 rounded-lg text-xl"><i class="fa-solid fa-file-invoice"></i></span>
+                <h3 class="text-xl font-bold text-gray-900" id="lbl-guide-title">Google Sheets Food Menu Designer - Guide</h3>
+            </div>
+            <div class="space-y-3 text-sm text-gray-600 leading-relaxed max-h-[400px] overflow-y-auto pr-2">
+                <div id="guide-body-en" class="space-y-3">
+                    <p>Welcome! This application simulates a restaurant administrative spreadsheet that populates a user-friendly digital food menu in real time.</p>
+                    <h4 class="font-bold text-gray-900 mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-sheets-green"></span> Administrative Sheets Tab:</h4>
+                    <ul class="list-disc pl-5 space-y-1">
+                        <li><strong>Bilingual Columns:</strong> When editing, you modify the selected language columns. Swap to English or Arabic using the header switcher!</li>
+                        <li><strong>Formula Bar:</strong> Select any cell, modify its value inside the top formula bar, and the visual cards render immediately.</li>
+                        <li><strong>Rows Management:</strong> Effortlessly add new items or delete selected items using the top spreadsheet controls.</li>
+                    </ul>
+                </div>
+                <div id="guide-body-ar" class="space-y-3 hidden" dir="rtl">
+                    <p>مرحباً بك! يقوم هذا التطبيق بمحاكاة جدول بيانات إداري متطور لربطه مباشرة بقائمة طعام رقمية تفاعلية يتم تحديثها في نفس اللحظة.</p>
+                    <h4 class="font-bold text-gray-900 mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-sheets-green"></span> لوحة تحكم الجدول الإداري:</h4>
+                    <ul class="list-disc pr-5 space-y-1">
+                        <li><strong>أعمدة ثنائية اللغة:</strong> عند التعديل، يمكنك تعديل اللغة النشطة الحالية. يمكنك التنقل بين العربية والإنجليزية في أي وقت.</li>
+                        <li><strong>شريط المعادلات:</strong> حدد أي خلية واكتب التحديث مباشرة في شريط المعادلات العلوي ليتم تطبيقه على الفور.</li>
+                        <li><strong>إدارة الوجبات:</strong> أضف أو احذف صفوف وجبات طعام جديدة بسهولة وبشكل كامل.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="pt-4 border-t flex justify-end">
+                <button onclick="toggleInfoModal()" class="bg-sheets-green hover:bg-sheets-hover text-white px-5 py-2 rounded-xl text-sm font-semibold transition" id="btn-guide-close">
+                    Got it!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- HOW TO PUBLISH WIZARD MODAL -->
+    <div id="publish-modal" class="hidden fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl relative border border-gray-100 flex flex-col max-h-[90vh]">
+            <button onclick="togglePublishModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-xl transition z-10">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            
+            <div class="flex items-center gap-3 border-b pb-4 mb-4">
+                <span class="bg-indigo-100 text-indigo-700 p-2.5 rounded-xl text-xl"><i class="fa-solid fa-globe"></i></span>
+                <div>
+                    <h3 class="text-xl font-bold text-gray-900" id="lbl-pub-title">How to Publish Your Live Food Menu</h3>
+                    <p class="text-xs text-gray-500" id="lbl-pub-subtitle">Deploy this single-file web app online for free in under 3 minutes.</p>
+                </div>
+            </div>
+
+            <!-- Deployment options tabs -->
+            <div class="overflow-y-auto flex-grow space-y-6 pr-2 text-sm text-gray-600 leading-relaxed">
+                <!-- Option 1: GitHub Pages -->
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+                    <h4 class="font-bold text-slate-900 flex items-center gap-2">
+                        <span class="bg-slate-900 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]">1</span>
+                        GitHub Pages (Recommended & Free hosting)
+                    </h4>
+                    <ol class="list-decimal pl-5 space-y-1 text-xs">
+                        <li>Go to <a href="https://github.com" target="_blank" class="text-indigo-600 underline">github.com</a> and sign up for a free account.</li>
+                        <li>Create a <strong>New Repository</strong> named <code>my-bistro-menu</code>.</li>
+                        <li>Click <strong>"uploading an existing file"</strong>, then upload this <code>index.html</code> file.</li>
+                        <li>Commit changes, then navigate to the <strong>Settings</strong> tab of your repository.</li>
+                        <li>Click <strong>Pages</strong> in the sidebar, set build source to the <code>main</code> branch, and click <strong>Save</strong>.</li>
+                        <li>Within 1 minute, GitHub will give you a live production link! (e.g. <code>https://username.github.io/my-bistro-menu/</code>).</li>
+                    </ol>
+                </div>
+
+                <!-- Option 2: Netlify Drop -->
+                <div class="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 space-y-2">
+                    <h4 class="font-bold text-indigo-950 flex items-center gap-2">
+                        <span class="bg-indigo-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]">2</span>
+                        Netlify Drop (Easiest No-Code hosting)
+                    </h4>
+                    <ol class="list-decimal pl-5 space-y-1 text-xs text-indigo-900">
+                        <li>Save this page code to a file named <code>index.html</code> inside a clean folder on your desktop.</li>
+                        <li>Open <a href="https://app.netlify.com/drop" target="_blank" class="text-indigo-600 underline">Netlify Drop</a> in your browser.</li>
+                        <li>Drag and drop your folder containing the file into the upload box on screen.</li>
+                        <li>Your website will deploy instantly with a dynamic, custom link you can share with guests!</li>
+                    </ol>
+                </div>
+
+                <!-- Option 3: Dynamic Storage Note -->
+                <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-4 space-y-2">
+                    <h4 class="font-bold text-emerald-950 flex items-center gap-1.5">
+                        <i class="fa-solid fa-database text-emerald-600"></i>
+                        How does the data stay synced?
+                    </h4>
+                    <p class="text-xs text-emerald-900">
+                        This digital menu utilizes the browser's <strong>LocalStorage database engine</strong> to store menu adjustments on the manager's device. For professional production setups requiring real-time central updates, you can use the <strong>"Export JSON"</strong> button to obtain a structural menu file and embed it on standard servers.
+                    </p>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t flex justify-end mt-4">
+                <button onclick="togglePublishModal()" class="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2 rounded-xl text-sm font-bold transition">
+                    I Understand
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ORDER COMPLETED MODAL -->
+    <div id="order-modal" class="hidden fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 text-center shadow-2xl relative border border-gray-100 space-y-4">
+            <div class="mx-auto w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-3xl shadow-inner animate-bounce">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-900" id="lbl-order-sent">Order Dispatched!</h3>
+            <p class="text-sm text-gray-500" id="lbl-order-sent-sub">Your simulated food ordering system is working flawlessly. Kitchen staff has received the order from the synced Google Sheet system.</p>
+            
+            <div class="bg-gray-50 p-4 rounded-xl text-left text-xs font-mono border space-y-2">
+                <div class="flex justify-between font-bold border-b pb-1.5">
+                    <span id="lbl-dispatch-details">SYNCHRONIZED DISPATCH DETAILS</span>
+                    <span class="text-emerald-600">OK</span>
+                </div>
+                <div class="flex justify-between">
+                    <span id="lbl-order-id">Database ID:</span>
+                    <span id="order-receipt-id" class="font-bold">#</span>
+                </div>
+                <div class="flex justify-between">
+                    <span id="lbl-order-total-paid">Calculated Total Paid:</span>
+                    <span id="order-receipt-total" class="font-bold text-emerald-600">$</span>
+                </div>
+            </div>
+
+            <button onclick="closeOrderModal()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl transition shadow">
+                Dismiss Receipt
+            </button>
+        </div>
+    </div>
+
+    <!-- FOOTER STATUS FOOTNOTE -->
+    <footer class="bg-white border-t border-sheets-border mt-auto py-3 text-xs text-gray-500 text-center select-none">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5 font-medium">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+                <span id="txt-status-bottom">All connected spreadsheet cells are functional</span>
+            </div>
+            <p id="txt-copyright">Interactive Google Sheets Digital Food Menu © 2026 • Real-time Data Synced</p>
+        </div>
+    </footer>
+
+    <script>
+        // Bilingual Preset Data Scheme for administrative spreadsheet database
+        const PRESET_MENU_DATA = [
+            {
+                id: "B101",
+                name_en: "Classic Wagyu Truffle Burger",
+                name_ar: "برجر واغيو كلاسيك بالتروفل",
+                category_en: "Burgers & Mains",
+                category_ar: "البرجر والوجبات الرئيسية",
+                price: 18.99,
+                description_en: "Gourmet wagyu beef patty, sliced black truffles, aged gruyère cheese, rocket, brioche bun, and signature herb spread.",
+                description_ar: "شريحة لحم واغيو فاخرة، تروفل أسود مشرح، جبن غرويير المعتق، جرجير، خبز بريوش، وصلصة أعشاب خاصة.",
+                image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+                available: true
+            },
+            {
+                id: "B102",
+                name_en: "Spicy Honey Hot Chicken Sliders",
+                name_ar: "سلايدرز الدجاج الحار بالعسل",
+                category_en: "Burgers & Mains",
+                category_ar: "البرجر والوجبات الرئيسية",
+                price: 14.50,
+                description_en: "Crispy hand-breaded chicken glazed with hot Nashville honey, creamy vinegar coleslaw, and sweet pickles.",
+                description_ar: "دجاج مقرمش مغلف بعسل ناشفيل الحار، سلطة ملفوف كريمية، ومخللات حلوة.",
+                image: "https://images.unsplash.com/photo-1625813506062-0aeb1d7a094b?auto=format&fit=crop&w=600&q=80",
+                available: true
+            },
+            {
+                id: "A201",
+                name_en: "Parmesan Truffle Crispy Fries",
+                name_ar: "بطاطس مقرمشة بالبارميزان والتروفل",
+                category_en: "Appetizers & Sides",
+                category_ar: "المقبلات والطلبات الجانبية",
+                price: 8.25,
+                description_en: "Golden premium cut fries tossed with freshly shaved parmesan, white truffle oil, and dynamic chopped parsley.",
+                description_ar: "بطاطس مقلية ذهبية مغطاة بجبن البارميزان المبشور الطازج، زيت التروفل الأبيض، والبقدونس المفروم.",
+                image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=600&q=80",
+                available: true
+            },
+            {
+                id: "A202",
+                name_en: "Charred Garlic Butter Edamame",
+                name_ar: "إدامامي مشوي بزبدة الثوم",
+                category_en: "Appetizers & Sides",
+                category_ar: "المقبلات والطلبات الجانبية",
+                price: 7.00,
+                description_en: "Freshly steamed organic edamame pods tossed in a heavy smoky garlic and sea salt butter reduction.",
+                description_ar: "قرون إدامامي عضوية مطهوة على البخار ومغطاة بصلصة زبدة الثوم المدخنة وملح البحر.",
+                image: "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?auto=format&fit=crop&w=600&q=80",
+                available: true
+            },
+            {
+                id: "D301",
+                name_en: "Molten Salted Caramel Lava Cake",
+                name_ar: "كيكة الحمم بالكراميل المملح",
+                category_en: "Desserts & Sweets",
+                category_ar: "الحلويات",
+                price: 10.99,
+                description_en: "Warm dark chocolate cake with a rich liquid salted caramel center, served with house vanilla bean gelato.",
+                description_ar: "كيكة الشوكولاتة الداكنة الدافئة مع حشوة كراميل مملح سائلة غنية، تقدم مع جيلاتو الفانيليا الفاخر.",
+                image: "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=600&q=80",
+                available: true
+            },
+            {
+                id: "D302",
+                name_en: "Espresso Infused Tiramisu Cup",
+                name_ar: "كوب تيراميسو بنكهة الاسبريسو",
+                category_en: "Desserts & Sweets",
+                category_ar: "الحلويات",
+                price: 9.50,
+                description_en: "Delicate espresso-soaked ladyfingers, velvety whipped mascarpone cream, and dark cocoa powder dusting.",
+                description_ar: "أصابع بسكويت هشة منقوعة في الاسبريسو، مغطاة بكريمة الماسكاربوني المخفوقة، وبودرة الكاكاو الداكنة.",
+                image: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?auto=format&fit=crop&w=600&q=80",
+                available: false
+            }
+        ];
+
+        // UI Labels Localization Dictionary
+        const TRANSLATIONS = {
+            en: {
+                title: "Bistro Delight Live Menu Database",
+                syncing: "Auto-Syncing",
+                reset: "Reset System Data",
+                export: "Export JSON",
+                guide: "User Guide",
+                publishBtn: "Publish App Online",
+                adminTab: "Spreadsheet Editor",
+                previewTab: "Live Customer Menu",
+                addDish: "Add Dish Row",
+                deleteDish: "Delete Selected Row",
+                sortLabel: "Sort by:",
+                noSort: "(No Sorting)",
+                priceAsc: "Price (Low to High)",
+                priceDesc: "Price (High to Low)",
+                nameAsc: "Item Name (A-Z)",
+                totalDishes: "Total Dishes:",
+                avgPrice: "Avg Price:",
+                soldout: "Unavailable:",
+                formulaPlaceholder: "Select a cell or type text directly...",
+                proTip: "<strong>Pro-Tip:</strong> Click on any cell directly to edit its content inside the grid, or use the formulas bar at the top! Changes sync instantly.",
+                searchPlaceholder: "Search dishes, tags...",
+                noDishes: "No dishes match your query",
+                noDishesSub: "Try refining your filter tag or searching for other items inside the Admin table.",
+                cartTitle: "Your Checkout Cart",
+                clearAll: "Clear All",
+                cartSubtotal: "Cart Subtotal",
+                cartTax: "Sales Tax (13%)",
+                cartDelivery: "Delivery",
+                cartTotal: "Total Payable",
+                placeOrder: "Place Simulated Order",
+                statusBottom: "All connected spreadsheet cells are functional",
+                copyright: "Interactive Google Sheets Digital Food Menu © 2026 • Real-time Data Synced",
+                orderSent: "Order Dispatched!",
+                orderSentSub: "Your simulated food ordering system is working flawlessly. Kitchen staff has received the order from the synced Google Sheet system.",
+                dispatchDetails: "SYNCHRONIZED DISPATCH DETAILS",
+                orderId: "Database ID:",
+                orderTotalPaid: "Calculated Total Paid:",
+                guideTitle: "Google Sheets Food Menu Designer - Guide",
+                guideClose: "Got it!",
+                pubTitle: "How to Publish Your Live Food Menu",
+                pubSubtitle: "Deploy this single-file web app online for free in under 3 minutes."
+            },
+            ar: {
+                title: "قاعدة بيانات قائمة طعام بيسترو",
+                syncing: "مزامنة تلقائية",
+                reset: "إعادة ضبط النظام",
+                export: "تصدير ملف JSON",
+                guide: "دليل الاستخدام",
+                publishBtn: "انشر الموقع مجاناً",
+                adminTab: "محرر جدول البيانات",
+                previewTab: "عرض المنيو المباشر",
+                addDish: "إضافة صف جديد",
+                deleteDish: "حذف الصف المحدد",
+                sortLabel: "ترتيب حسب:",
+                noSort: "(بدون ترتيب)",
+                priceAsc: "السعر (من الأقل للأعلى)",
+                priceDesc: "السعر (من الأعلى للأقل)",
+                nameAsc: "الاسم (أ - ي)",
+                totalDishes: "عدد الوجبات:",
+                avgPrice: "متوسط السعر:",
+                soldout: "الغير متوفر:",
+                formulaPlaceholder: "حدد أي خلية للتعديل عليها أو اكتب هنا مباشرة...",
+                proTip: "<strong>تنويه:</strong> انقر مرتين على أي خلية لتعديلها في الجدول مباشرة، أو استخدم شريط المعادلات في الأعلى.",
+                searchPlaceholder: "البحث عن وجبة أو فئة...",
+                noDishes: "لم يتم العثور على نتائج للبحث",
+                noDishesSub: "حاول تغيير كلمة البحث أو فئة الاختيار لرؤية الوجبات الأخرى المتاحة.",
+                cartTitle: "سلة المشتريات",
+                clearAll: "مسح الكل",
+                cartSubtotal: "المجموع الفرعي",
+                cartTax: "الضريبة المضافة (13%)",
+                cartDelivery: "التوصيل",
+                cartTotal: "الإجمالي المستحق",
+                placeOrder: "إرسال طلب تجريبي",
+                statusBottom: "جميع خلايا جدول البيانات متصلة وتعمل بكفاءة",
+                copyright: "قائمة طعام تفاعلية مربوطة بجدول بيانات © 2026 • مزامنة تلقائية",
+                orderSent: "تم إرسال الطلب بنجاح!",
+                orderSentSub: "النظام يعمل بكفاءة تامة. تم إرسال معلومات الطلب المحدّث من قاعدة البيانات إلى المطبخ بنجاح.",
+                dispatchDetails: "تفاصيل المزامنة الرقمية",
+                orderId: "معرف الطلب:",
+                orderTotalPaid: "إجمالي المبلغ المدفوع:",
+                guideTitle: "دليل مستخدم قائمة الطعام وقاعدة البيانات",
+                guideClose: "فهمت ذلك!",
+                pubTitle: "طريقة نشر قائمة الطعام الخاصة بك للعامة",
+                pubSubtitle: "قم برفع ونشر هذا التطبيق ذو الصفحة الواحدة على الإنترنت مجاناً في أقل من 3 دقائق."
+            }
+        };
+
+        // Active Application States
+        let currentMenuData = [];
+        let activeCell = { rowIndex: null, colIndex: null, fieldName: null };
+        let currentCategoryFilter = "All";
+        let customerCart = [];
+        let currentLang = 'en';
+
+        // Dynamic Spreadsheet Columns Mapping structure
+        function getColumnsMapping() {
+            return [
+                { field: 'id', label: 'ID', headerId: 'col-header-A' },
+                { field: currentLang === 'en' ? 'name_en' : 'name_ar', label: currentLang === 'en' ? 'Item Name' : 'الاسم', headerId: 'col-header-B' },
+                { field: currentLang === 'en' ? 'category_en' : 'category_ar', label: currentLang === 'en' ? 'Category' : 'الفئة', headerId: 'col-header-C' },
+                { field: 'price', label: currentLang === 'en' ? 'Price' : 'السعر', headerId: 'col-header-D' },
+                { field: currentLang === 'en' ? 'description_en' : 'description_ar', label: currentLang === 'en' ? 'Description' : 'الوصف', headerId: 'col-header-E' },
+                { field: 'image', label: currentLang === 'en' ? 'Image URL' : 'رابط الصورة', headerId: 'col-header-F' },
+                { field: 'available', label: currentLang === 'en' ? 'Status' : 'الحالة', headerId: 'col-header-G' }
+            ];
+        }
+
+        window.onload = function() {
+            const stored = localStorage.getItem('google_sheets_food_menu_bilingual');
+            if (stored) {
+                try {
+                    currentMenuData = JSON.parse(stored);
+                } catch (e) {
+                    currentMenuData = JSON.parse(JSON.stringify(PRESET_MENU_DATA));
+                }
+            } else {
+                currentMenuData = JSON.parse(JSON.stringify(PRESET_MENU_DATA));
+            }
+            
+            // Check saved language selection
+            const savedLang = localStorage.getItem('google_sheets_menu_lang');
+            if (savedLang) {
+                toggleLanguage(savedLang);
+            } else {
+                toggleLanguage('en');
+            }
+        };
+
+        // UI Texts Multi-language Reloader
+        function applyLocalization() {
+            const dict = TRANSLATIONS[currentLang];
+            
+            // Toggle HTML and Body tags direction and lang values
+            document.documentElement.lang = currentLang;
+            document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+            document.body.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+
+            // Top Header Info labels update
+            document.getElementById('sheet-title-input').value = dict.title;
+            document.getElementById('txt-syncing').innerText = dict.syncing;
+            document.getElementById('txt-reset').innerText = dict.reset;
+            document.getElementById('txt-export').innerText = dict.export;
+            document.getElementById('txt-guide').innerText = dict.guide;
+            document.getElementById('txt-publish-btn').innerText = dict.publishBtn;
+            document.getElementById('txt-admin-tab').innerText = dict.adminTab;
+            document.getElementById('txt-preview-tab').innerText = dict.previewTab;
+
+            // Sheet toolbar labels update
+            document.getElementById('txt-add-dish').innerText = dict.addDish;
+            document.getElementById('txt-delete-dish').innerText = dict.deleteDish;
+            document.getElementById('txt-sort-label').innerText = dict.sortLabel;
+            document.getElementById('opt-no-sort').innerText = dict.noSort;
+            document.getElementById('opt-price-asc').innerText = dict.priceAsc;
+            document.getElementById('opt-price-desc').innerText = dict.priceDesc;
+            document.getElementById('opt-name-asc').innerText = dict.nameAsc;
+
+            // Spreadsheet KPI statistics
+            document.getElementById('lbl-total-dishes').innerText = dict.totalDishes;
+            document.getElementById('lbl-avg-price').innerText = dict.avgPrice;
+            document.getElementById('lbl-soldout').innerText = dict.soldout;
+
+            // Formula bars and inputs
+            document.getElementById('formula-bar-input').placeholder = dict.formulaPlaceholder;
+            document.getElementById('txt-pro-tip').innerHTML = dict.proTip;
+
+            // Client menu view labels
+            document.getElementById('menu-search-input').placeholder = dict.searchPlaceholder;
+            document.getElementById('txt-no-dishes').innerText = dict.noDishes;
+            document.getElementById('txt-no-dishes-sub').innerText = dict.noDishesSub;
+
+            // Cart checkout module labels
+            document.getElementById('lbl-cart-title').innerText = dict.cartTitle;
+            document.getElementById('txt-clear-all').innerText = dict.clearAll;
+            document.getElementById('lbl-cart-subtotal').innerText = dict.cartSubtotal;
+            document.getElementById('lbl-cart-tax').innerText = dict.cartTax;
+            document.getElementById('lbl-cart-delivery').innerText = dict.cartDelivery;
+            document.getElementById('lbl-cart-total').innerText = dict.cartTotal;
+            document.getElementById('txt-place-order').innerText = dict.placeOrder;
+
+            // Bottom elements & popups
+            document.getElementById('txt-status-bottom').innerText = dict.statusBottom;
+            document.getElementById('txt-copyright').innerText = dict.copyright;
+            document.getElementById('lbl-order-sent').innerText = dict.orderSent;
+            document.getElementById('lbl-order-sent-sub').innerText = dict.orderSentSub;
+            document.getElementById('lbl-dispatch-details').innerText = dict.dispatchDetails;
+            document.getElementById('lbl-order-id').innerText = dict.orderId;
+            document.getElementById('lbl-order-total-paid').innerText = dict.orderTotalPaid;
+            document.getElementById('lbl-guide-title').innerText = dict.guideTitle;
+            document.getElementById('btn-guide-close').innerText = dict.guideClose;
+            document.getElementById('lbl-pub-title').innerText = dict.pubTitle;
+            document.getElementById('lbl-pub-subtitle').innerText = dict.pubSubtitle;
+
+            // Adjust spreadsheet column headers dynamically according to active language
+            const cols = getColumnsMapping();
+            cols.forEach((col, idx) => {
+                const headerLetter = ['A', 'B', 'C', 'D', 'E', 'F', 'G'][idx];
+                const headerEl = document.getElementById(col.headerId);
+                if (headerEl) {
+                    headerEl.innerText = `${headerLetter} (${col.label})`;
+                }
+            });
+
+            // Toggle Guide content in modal based on language
+            if (currentLang === 'ar') {
+                document.getElementById('guide-body-en').classList.add('hidden');
+                document.getElementById('guide-body-ar').classList.remove('hidden');
+            } else {
+                document.getElementById('guide-body-en').classList.remove('hidden');
+                document.getElementById('guide-body-ar').classList.add('hidden');
+            }
+        }
+
+        // Toggle Active language selection
+        function toggleLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem('google_sheets_menu_lang', lang);
+
+            // Update UI toggler visual state
+            const btnEn = document.getElementById('lang-btn-en');
+            const btnAr = document.getElementById('lang-btn-ar');
+
+            if (lang === 'ar') {
+                btnAr.className = "px-2.5 py-1 text-xs font-bold rounded-md transition-all bg-white text-gray-800 shadow-sm";
+                btnEn.className = "px-2.5 py-1 text-xs font-bold rounded-md transition-all text-gray-500 hover:text-gray-800";
+            } else {
+                btnEn.className = "px-2.5 py-1 text-xs font-bold rounded-md transition-all bg-white text-gray-800 shadow-sm";
+                btnAr.className = "px-2.5 py-1 text-xs font-bold rounded-md transition-all text-gray-500 hover:text-gray-800";
+            }
+
+            // Sync visual UI elements
+            applyLocalization();
+            renderSpreadsheet();
+            updateCalculationsAndStats();
+            renderLiveMenu();
+            updateCartDisplay();
+
+            // Re-select first cell with corrected mapping indexes
+            const cols = getColumnsMapping();
+            const activeFieldName = cols[1].field; // The localized Name field (name_en or name_ar)
+            selectCell(0, 1, activeFieldName);
+        }
+
+        // Save active states helper
+        function saveToStorage() {
+            localStorage.setItem('google_sheets_food_menu_bilingual', JSON.stringify(currentMenuData));
+        }
+
+        // Dismiss Alerts notifications panel
+        function dismissAlert() {
+            document.getElementById('custom-alert').classList.add('hidden');
+        }
+
+        function showAlert(msg) {
+            const box = document.getElementById('custom-alert');
+            const msgHolder = document.getElementById('custom-alert-msg');
+            msgHolder.textContent = msg;
+            box.classList.remove('hidden');
+            setTimeout(() => {
+                box.classList.add('hidden');
+            }, 6000);
+        }
+
+        // Reset administrative database helper
+        function triggerReset() {
+            currentMenuData = JSON.parse(JSON.stringify(PRESET_MENU_DATA));
+            saveToStorage();
+            renderSpreadsheet();
+            updateCalculationsAndStats();
+            renderLiveMenu();
+            
+            const cols = getColumnsMapping();
+            selectCell(0, 1, cols[1].field);
+            showAlert(currentLang === 'en' ? "Data set reset back to presets successfully!" : "تمت إعادة تعيين القائمة وتحديث قاعدة البيانات بنجاح!");
+        }
+
+        // Export active database as json structure
+        function exportToJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentMenuData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "google_sheets_bilingual_menu.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showAlert(currentLang === 'en' ? "Successfully exported active JSON!" : "تم تصدير ملف البيانات بنجاح!");
+        }
+
+        // Toggle Modals guides on/off
+        function toggleInfoModal() {
+            const m = document.getElementById('info-modal');
+            m.classList.toggle('hidden');
+        }
+
+        function togglePublishModal() {
+            const m = document.getElementById('publish-modal');
+            m.classList.toggle('hidden');
+        }
+
+        // Render Administrative spreadsheets
+        function renderSpreadsheet() {
+            const tbody = document.getElementById('sheets-table-body');
+            tbody.innerHTML = '';
+            
+            const cols = getColumnsMapping();
+
+            currentMenuData.forEach((item, rIdx) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50/50 transition-colors";
+                
+                // 1. Column Header: Row Number
+                const thRowHeader = document.createElement('td');
+                thRowHeader.className = "bg-gray-50 border-r border-b border-gray-200 text-center text-[11px] text-gray-400 select-none font-sans font-semibold";
+                thRowHeader.id = `row-header-${rIdx + 1}`;
+                thRowHeader.innerText = rIdx + 1;
+                tr.appendChild(thRowHeader);
+
+                // Populate cell elements based on active localized schema fields
+                cols.forEach((col, cIdx) => {
+                    const td = document.createElement('td');
+                    td.className = "border-r border-b border-gray-200 px-2 py-1.5 relative truncate text-xs cursor-text";
+                    td.id = `cell-${rIdx}-${col.field}`;
+                    
+                    // Specific conditional formatting according to field types
+                    if (col.field === 'available') {
+                        const isAvail = item[col.field];
+                        const labelClass = isAvail ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800';
+                        const labelText = isAvail 
+                            ? (currentLang === 'en' ? 'Available' : 'متوفر') 
+                            : (currentLang === 'en' ? 'Sold Out' : 'غير متوفر');
+                        
+                        td.innerHTML = `
+                            <div class="flex items-center justify-between w-full">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${labelClass}">
+                                    ${labelText}
+                                </span>
+                                <input type="checkbox" ${isAvail ? 'checked' : ''} onchange="toggleAvailability(${rIdx}, this.checked)" class="h-3.5 w-3.5 accent-sheets-green cursor-pointer">
+                            </div>
+                        `;
+                    } else if (col.field === 'price') {
+                        td.className += " text-right text-emerald-700 font-semibold";
+                        td.innerText = `$${Number(item[col.field]).toFixed(2)}`;
+                    } else if (col.field === 'image') {
+                        const truncateUrl = item[col.field] ? (item[col.field].substring(0, 15) + '...') : '(None)';
+                        td.innerHTML = `
+                            <div class="flex items-center gap-1.5">
+                                <img src="${item[col.field] || 'placeholder'}" onerror="this.src='https://placehold.co/40x40/f1f5f9/94a3b8?text=Food'" class="w-4 h-4 rounded object-cover border">
+                                <span class="text-gray-400 select-none text-[10px]">${truncateUrl}</span>
+                            </div>
+                        `;
+                    } else {
+                        td.innerText = item[col.field] || '';
+                    }
+
+                    // Interactive cell events
+                    td.onclick = function(e) {
+                        if (e.target.tagName !== 'INPUT') {
+                            selectCell(rIdx, cIdx, col.field);
+                        }
+                    };
+
+                    td.ondblclick = function() {
+                        if (col.field !== 'available') {
+                            makeCellEditableInline(rIdx, col.field);
+                        }
+                    };
+
+                    tr.appendChild(td);
+                });
+
+                tbody.appendChild(tr);
+            });
+
+            applyCellSelectionHighlight();
+        }
+
+        // Select specific Cell logic
+        function selectCell(rIdx, cIdx, fieldName) {
+            // Un-highlight previous active indicators
+            document.querySelectorAll('.cell-active').forEach(el => el.classList.remove('cell-active'));
+            document.querySelectorAll('.row-header-active').forEach(el => el.classList.remove('row-header-active'));
+            document.querySelectorAll('.col-header-active').forEach(el => el.classList.remove('col-header-active'));
+
+            // Set new selection
+            activeCell.rowIndex = rIdx;
+            activeCell.colIndex = cIdx;
+            activeCell.fieldName = fieldName;
+
+            applyCellSelectionHighlight();
+
+            // Enable delete row operations since a row is active
+            document.getElementById('delete-row-btn').disabled = false;
+
+            // Sync with Formula input box
+            const cellValue = currentMenuData[rIdx][fieldName];
+            document.getElementById('formula-bar-input').value = cellValue !== undefined ? cellValue : '';
+
+            // Map coordinate indicator letters
+            const colLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+            const visualIdText = `${colLetters[cIdx]}${rIdx + 2}`; // Shifted for row header index representation
+            document.getElementById('active-cell-indicator').innerText = visualIdText;
+        }
+
+        // Apply active conditional boundaries highlight to headers and borders
+        function applyCellSelectionHighlight() {
+            if (activeCell.rowIndex === null || activeCell.fieldName === null) return;
+
+            const targetCell = document.getElementById(`cell-${activeCell.rowIndex}-${activeCell.fieldName}`);
+            if (targetCell) {
+                targetCell.classList.add('cell-active');
+            }
+
+            // Highlight corresponding Row header
+            const rowHeader = document.getElementById(`row-header-${activeCell.rowIndex + 1}`);
+            if (rowHeader) {
+                rowHeader.classList.add('row-header-active');
+            }
+
+            // Highlight corresponding Column header
+            const cols = getColumnsMapping();
+            const colMappingObj = cols[activeCell.colIndex];
+            if (colMappingObj) {
+                const colHeader = document.getElementById(colMappingObj.headerId);
+                if (colHeader) {
+                    colHeader.classList.add('col-header-active');
+                }
+            }
+        }
+
+        // Event listener for formula bar entries
+        function onFormulaBarInput(value) {
+            if (activeCell.rowIndex === null || activeCell.fieldName === null) return;
+
+            let parsedVal = value;
+            if (activeCell.fieldName === 'price') {
+                parsedVal = parseFloat(value) || 0;
+            }
+
+            // Save updates
+            currentMenuData[activeCell.rowIndex][activeCell.fieldName] = parsedVal;
+            saveToStorage();
+
+            updateCellDOM(activeCell.rowIndex, activeCell.fieldName, value);
+            updateCalculationsAndStats();
+            renderLiveMenu();
+        }
+
+        // Cell inline editing adjustments helper
+        function makeCellEditableInline(rIdx, fieldName) {
+            const cellId = `cell-${rIdx}-${fieldName}`;
+            const cellNode = document.getElementById(cellId);
+            if (!cellNode) return;
+
+            const currentValue = currentMenuData[rIdx][fieldName];
+            
+            // Render inline input
+            const input = document.createElement('input');
+            input.type = fieldName === 'price' ? 'number' : 'text';
+            if (fieldName === 'price') {
+                input.step = '0.01';
+            }
+            input.value = currentValue;
+            input.className = "absolute inset-0 w-full h-full bg-white text-xs px-2 focus:outline-none focus:ring-2 focus:ring-sheets-green z-50";
+            
+            cellNode.appendChild(input);
+            input.focus();
+            input.select();
+
+            function finishInlineEdit() {
+                let updatedVal = input.value;
+                if (fieldName === 'price') {
+                    updatedVal = parseFloat(updatedVal) || 0;
+                }
+                
+                currentMenuData[rIdx][fieldName] = updatedVal;
+                saveToStorage();
+                
+                renderSpreadsheet();
+                updateCalculationsAndStats();
+                renderLiveMenu();
+                
+                if (activeCell.rowIndex === rIdx && activeCell.fieldName === fieldName) {
+                    document.getElementById('formula-bar-input').value = updatedVal;
+                }
+            }
+
+            input.onblur = finishInlineEdit;
+            input.onkeydown = function(e) {
+                if (e.key === 'Enter') finishInlineEdit();
+                if (e.key === 'Escape') renderSpreadsheet();
+            };
+        }
+
+        // Specific cell DOM updates
+        function updateCellDOM(rIdx, fieldName, newVal) {
+            const cellId = `cell-${rIdx}-${fieldName}`;
+            const cellNode = document.getElementById(cellId);
+            if (!cellNode) return;
+
+            if (fieldName === 'price') {
+                cellNode.innerText = `$${Number(newVal).toFixed(2)}`;
+            } else if (fieldName === 'image') {
+                const truncateUrl = newVal ? (newVal.substring(0, 15) + '...') : '(None)';
+                cellNode.innerHTML = `
+                    <div class="flex items-center gap-1.5">
+                        <img src="${newVal || 'placeholder'}" onerror="this.src='https://placehold.co/40x40/f1f5f9/94a3b8?text=Food'" class="w-4 h-4 rounded object-cover border">
+                        <span class="text-gray-400 select-none text-[10px]">${truncateUrl}</span>
+                    </div>
+                `;
+            } else {
+                cellNode.innerText = newVal;
+            }
+        }
+
+        // Toggle availability Status check
+        function toggleAvailability(rIdx, status) {
+            currentMenuData[rIdx].available = status;
+            saveToStorage();
+            renderSpreadsheet();
+            updateCalculationsAndStats();
+            renderLiveMenu();
+            showAlert(currentLang === 'en' ? `Updated status for ${currentMenuData[rIdx].name_en}` : `تم تحديث حالة الوجبة: ${currentMenuData[rIdx].name_ar}`);
+        }
+
+        // Add empty dynamic row
+        function addEmptyRow() {
+            const nextIndexId = 100 + currentMenuData.length + 1;
+            const newDish = {
+                id: `X${nextIndexId}`,
+                name_en: "Gourmet Culinary Art",
+                name_ar: "طبق مبتكر فاخر",
+                category_en: "Burgers & Mains",
+                category_ar: "البرجر والوجبات الرئيسية",
+                price: 11.99,
+                description_en: "Fresh organic seasonal selection styled with premium house elements.",
+                description_ar: "وجبة محضرة من مكونات طازجة ومختارة بعناية فائقة.",
+                image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80",
+                available: true
+            };
+
+            currentMenuData.push(newDish);
+            saveToStorage();
+            renderSpreadsheet();
+            updateCalculationsAndStats();
+            renderLiveMenu();
+            
+            const cols = getColumnsMapping();
+            selectCell(currentMenuData.length - 1, 1, cols[1].field);
+            showAlert(currentLang === 'en' ? "Added new food item row!" : "تمت إضافة صف وجبة جديد!");
+        }
+
+        // Delete row
+        function deleteActiveRow() {
+            if (activeCell.rowIndex === null) return;
+            
+            currentMenuData.splice(activeCell.rowIndex, 1);
+            saveToStorage();
+
+            activeCell = { rowIndex: null, colIndex: null, fieldName: null };
+            document.getElementById('delete-row-btn').disabled = true;
+            document.getElementById('formula-bar-input').value = '';
+            document.getElementById('active-cell-indicator').innerText = 'A1';
+
+            renderSpreadsheet();
+            updateCalculationsAndStats();
+            renderLiveMenu();
+            showAlert(currentLang === 'en' ? "Selected row deleted." : "تم حذف الصف المحدد.");
+        }
+
+        // Dynamic Sorting Operations from dropdown
+        function sortSpreadsheet(criteria) {
+            if (!criteria) return;
+            const targetFieldName = currentLang === 'en' ? 'name_en' : 'name_ar';
+
+            if (criteria === 'price-asc') {
+                currentMenuData.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+            } else if (criteria === 'price-desc') {
+                currentMenuData.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+            } else if (criteria === 'name-asc') {
+                currentMenuData.sort((a, b) => String(a[targetFieldName]).localeCompare(String(b[targetFieldName])));
+            }
+
+            saveToStorage();
+            renderSpreadsheet();
+            updateCalculationsAndStats();
+            renderLiveMenu();
+            showAlert(currentLang === 'en' ? "Sorted dataset rows." : "تم ترتيب الصفوف بنجاح.");
+        }
+
+        // KPI spreadsheet math aggregators
+        function updateCalculationsAndStats() {
+            const totalDishes = currentMenuData.length;
+            let sumPrice = 0;
+            let unavailableCount = 0;
+
+            currentMenuData.forEach(item => {
+                sumPrice += parseFloat(item.price) || 0;
+                if (!item.available) {
+                    unavailableCount++;
+                }
+            });
+
+            const averagePrice = totalDishes > 0 ? (sumPrice / totalDishes) : 0;
+
+            document.getElementById('stat-total-items').innerText = totalDishes;
+            document.getElementById('stat-avg-price').innerText = `$${averagePrice.toFixed(2)}`;
+            document.getElementById('stat-out-stock').innerText = unavailableCount;
+        }
+
+        // Render Live Customer View Card Items
+        function renderLiveMenu() {
+            const menuGrid = document.getElementById('live-menu-grid');
+            const emptyState = document.getElementById('live-menu-empty');
+            const searchQuery = document.getElementById('menu-search-input').value.toLowerCase().trim();
+
+            menuGrid.innerHTML = '';
+
+            const nameField = currentLang === 'en' ? 'name_en' : 'name_ar';
+            const catField = currentLang === 'en' ? 'category_en' : 'category_ar';
+            const descField = currentLang === 'en' ? 'description_en' : 'description_ar';
+
+            // Gather dynamically mapped categories list
+            const uniqueCategories = [currentLang === 'en' ? "All" : "الكل"];
+            currentMenuData.forEach(item => {
+                const categoryVal = item[catField];
+                if (categoryVal && !uniqueCategories.includes(categoryVal)) {
+                    uniqueCategories.push(categoryVal);
+                }
+            });
+
+            // If the current filter was "All" in the previous language, update state
+            if (currentCategoryFilter === "All" || currentCategoryFilter === "الكل") {
+                currentCategoryFilter = uniqueCategories[0];
+            }
+
+            // Draw dynamic category select buttons
+            const pillsContainer = document.getElementById('menu-category-pills');
+            pillsContainer.innerHTML = '';
+            
+            uniqueCategories.forEach(cat => {
+                const btn = document.createElement('button');
+                const isActive = currentCategoryFilter === cat;
+                btn.className = `px-4 py-1.5 rounded-full text-xs font-bold tracking-wide transition-all ${
+                    isActive 
+                    ? 'bg-sheets-green text-white shadow-md scale-105' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                }`;
+                btn.innerText = cat;
+                btn.onclick = function() {
+                    currentCategoryFilter = cat;
+                    renderLiveMenu();
+                };
+                pillsContainer.appendChild(btn);
+            });
+
+            // Filter dishes according to active elements
+            const filteredDishes = currentMenuData.filter(dish => {
+                const isAllVal = currentCategoryFilter === uniqueCategories[0];
+                const matchesCategory = (isAllVal || dish[catField] === currentCategoryFilter);
+                
+                const matchesSearch = (
+                    (dish[nameField] || '').toLowerCase().includes(searchQuery) ||
+                    (dish[descField] || '').toLowerCase().includes(searchQuery) ||
+                    (dish[catField] || '').toLowerCase().includes(searchQuery)
+                );
+                return matchesCategory && matchesSearch;
+            });
+
+            if (filteredDishes.length === 0) {
+                emptyState.classList.remove('hidden');
+                menuGrid.classList.add('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+                menuGrid.classList.remove('hidden');
+            }
+
+            // Draw card layout
+            filteredDishes.forEach(dish => {
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full";
+                
+                const formattedPrice = Number(dish.price || 0).toFixed(2);
+                
+                const statusBadge = dish.available 
+                    ? `<span class="bg-emerald-500/95 backdrop-blur-md text-white text-[10px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1"><span class="w-1.5 h-1.5 bg-white rounded-full animate-ping"></span>${currentLang === 'en' ? 'Available' : 'متوفر'}</span>`
+                    : `<span class="bg-rose-600/95 backdrop-blur-md text-white text-[10px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1"><i class="fa-solid fa-ban"></i>${currentLang === 'en' ? 'Sold Out' : 'نفذ'}</span>`;
+
+                card.innerHTML = `
+                    <div class="relative h-48 w-full bg-slate-100 overflow-hidden group">
+                        <!-- Card status marker -->
+                        <div class="absolute top-3 left-3 z-10">
+                            ${statusBadge}
+                        </div>
+                        <!-- ID Tag identifier -->
+                        <div class="absolute top-3 right-3 z-10 bg-slate-900/85 backdrop-blur-md text-white font-mono text-[10px] px-2 py-1 rounded-md">
+                            ${dish.id || 'N/A'}
+                        </div>
+                        <!-- Image item display -->
+                        <img src="${dish.image || ''}" 
+                             onerror="this.src='https://placehold.co/600x400/eceff1/78909c?text=${encodeURIComponent(dish[nameField] || 'Food')}'"
+                             alt="${dish[nameField]}" 
+                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    </div>
+                    
+                    <div class="p-5 flex-grow flex flex-col justify-between space-y-4">
+                        <div class="space-y-2">
+                            <span class="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-bold uppercase tracking-wide inline-block">
+                                ${dish[catField] || ''}
+                            </span>
+                            <h4 class="text-base font-bold text-gray-900 leading-tight">${dish[nameField] || ''}</h4>
+                            <p class="text-xs text-gray-500 line-clamp-2 leading-relaxed h-8">${dish[descField] || ''}</p>
+                        </div>
+                        
+                        <div class="flex items-center justify-between border-t border-gray-100 pt-3">
+                            <div>
+                                <span class="text-[9px] text-gray-400 block uppercase font-bold">${currentLang === 'en' ? 'Live Price' : 'السعر المباشر'}</span>
+                                <span class="text-lg font-extrabold text-slate-900">$${formattedPrice}</span>
+                            </div>
+
+                            <!-- Cart Adder Controls -->
+                            <div>
+                                ${dish.available 
+                                    ? `<button onclick="addToCart('${dish.id}')" class="bg-slate-900 hover:bg-sheets-green text-white h-9 px-4 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                                           <i class="fa-solid fa-plus"></i> ${currentLang === 'en' ? 'Add' : 'أضف'}
+                                       </button>`
+                                    : `<button disabled class="bg-gray-100 text-gray-400 h-9 px-4 rounded-xl text-xs font-bold cursor-not-allowed flex items-center gap-1.5">
+                                           <i class="fa-solid fa-ban"></i> ${currentLang === 'en' ? 'Out' : 'غير متوفر'}
+                                       </button>`
+                                }
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                menuGrid.appendChild(card);
+            });
+        }
+
+        // Add to digital client shopping cart
+        function addToCart(dishId) {
+            const item = currentMenuData.find(d => d.id === dishId);
+            if (!item) return;
+
+            const nameField = currentLang === 'en' ? 'name_en' : 'name_ar';
+
+            const cartElement = customerCart.find(c => c.id === dishId);
+            if (cartElement) {
+                cartElement.quantity++;
+            } else {
+                customerCart.push({
+                    id: item.id,
+                    name: item[nameField],
+                    price: parseFloat(item.price) || 0,
+                    quantity: 1
+                });
+            }
+
+            updateCartDisplay();
+            showAlert(currentLang === 'en' ? `Added ${item[nameField]} to checkout cart` : `تمت إضافة ${item[nameField]} للسلة`);
+        }
+
+        // Subtract from cart
+        function removeFromCart(dishId) {
+            const cartElement = customerCart.find(c => c.id === dishId);
+            if (!cartElement) return;
+
+            if (cartElement.quantity > 1) {
+                cartElement.quantity--;
+            } else {
+                customerCart = customerCart.filter(c => c.id !== dishId);
+            }
+
+            updateCartDisplay();
+        }
+
+        function clearCart() {
+            customerCart = [];
+            updateCartDisplay();
+        }
+
+        // Update checkout totals breakdown elements
+        function updateCartDisplay() {
+            const container = document.getElementById('cart-items-container');
+            const subtotalLabel = document.getElementById('cart-subtotal');
+            const taxLabel = document.getElementById('cart-tax');
+            const totalLabel = document.getElementById('cart-total');
+            const checkoutBtn = document.getElementById('cart-checkout-btn');
+
+            if (customerCart.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-400">
+                        <i class="fa-solid fa-cart-shopping text-3xl mb-2 opacity-30"></i>
+                        <p class="text-xs">${currentLang === 'en' ? 'No food items added yet.' : 'السلة فارغة حالياً.'}</p>
+                    </div>
+                `;
+                subtotalLabel.innerText = "$0.00";
+                taxLabel.innerText = "$0.00";
+                totalLabel.innerText = "$0.00";
+                checkoutBtn.disabled = true;
+                return;
+            }
+
+            checkoutBtn.disabled = false;
+            container.innerHTML = '';
+
+            let rawSubtotal = 0;
+
+            customerCart.forEach(cartItem => {
+                rawSubtotal += cartItem.price * cartItem.quantity;
+                
+                const itemDiv = document.createElement('div');
+                itemDiv.className = "flex items-center justify-between gap-3 bg-gray-50 p-2.5 rounded-xl border border-gray-100 transition hover:bg-white";
+                itemDiv.innerHTML = `
+                    <div class="flex-grow min-w-0">
+                        <h5 class="text-xs font-bold text-gray-900 truncate" title="${cartItem.name}">${cartItem.name}</h5>
+                        <div class="flex items-center gap-1.5 text-[10px] text-gray-400 mt-0.5">
+                            <span>$${cartItem.price.toFixed(2)}</span>
+                            <span>•</span>
+                            <span class="text-emerald-600 font-bold">$${(cartItem.price * cartItem.quantity).toFixed(2)}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <button onclick="removeFromCart('${cartItem.id}')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 w-5 h-5 rounded flex items-center justify-center transition text-xs font-bold">
+                            <i class="fa-solid fa-minus text-[8px]"></i>
+                        </button>
+                        <span class="font-mono text-xs font-bold text-gray-800 w-4 text-center">${cartItem.quantity}</span>
+                        <button onclick="addToCart('${cartItem.id}')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 w-5 h-5 rounded flex items-center justify-center transition text-xs font-bold">
+                            <i class="fa-solid fa-plus text-[8px]"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(itemDiv);
+            });
+
+            // VAT Math representation
+            const taxVal = rawSubtotal * 0.13;
+            const finalTotal = rawSubtotal + taxVal;
+
+            subtotalLabel.innerText = `$${rawSubtotal.toFixed(2)}`;
+            taxLabel.innerText = `$${taxVal.toFixed(2)}`;
+            totalLabel.innerText = `$${finalTotal.toFixed(2)}`;
+        }
+
+        // Dispatch simulated kitchen checkout
+        function triggerOrderSuccess() {
+            if (customerCart.length === 0) return;
+
+            const receiptId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
+            const receiptTotalStr = document.getElementById('cart-total').innerText;
+
+            document.getElementById('order-receipt-id').innerText = receiptId;
+            document.getElementById('order-receipt-total').innerText = receiptTotalStr;
+
+            document.getElementById('order-modal').classList.remove('hidden');
+        }
+
+        function closeOrderModal() {
+            document.getElementById('order-modal').classList.add('hidden');
+            clearCart();
+        }
+
+        // Administrative View Tabs switches
+        function switchTab(tabName) {
+            const btnSheets = document.getElementById('tab-btn-sheets');
+            const btnPreview = document.getElementById('tab-btn-preview');
+            const contSheets = document.getElementById('tab-content-sheets');
+            const contPreview = document.getElementById('tab-content-preview');
+
+            if (tabName === 'sheets') {
+                btnSheets.className = "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all shadow-sm bg-white text-sheets-green border border-gray-100";
+                btnPreview.className = "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-white/50 transition-all";
+                contSheets.classList.remove('hidden');
+                contPreview.classList.add('hidden');
+                renderSpreadsheet();
+            } else {
+                btnPreview.className = "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all shadow-sm bg-white text-sheets-green border border-gray-100";
+                btnSheets.className = "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-white/50 transition-all";
+                contSheets.classList.add('hidden');
+                contPreview.classList.remove('hidden');
+                renderLiveMenu();
+            }
+        }
+    </script>
+</body>
+</html>
